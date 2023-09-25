@@ -1,0 +1,46 @@
+#!/bin/bash
+
+echo "Beginning the write process"
+
+xml_content="
+  <localfile>
+    <log_format>syslog</log_format>
+    <location>/var/log/bootstrap.log</location>
+  </localfile>
+
+  <localfile>
+    <log_format>json</log_format>
+    <location>/var/lib/mysql/ddl_recovery-backup.log</location>
+  </localfile>
+
+  <localfile>
+    <log_format>json</log_format>
+    <location>/var/lib/mysql/ddl_recovery.log</location>
+  </localfile>
+"
+
+# Specify the path to the ossec.conf file
+ossec_conf="/var/ossec/etc/ossec.conf"
+
+# Check if the file exists before appending
+if [ -f "$ossec_conf" ]; then
+  # Use awk to insert the XML content just above the last line
+  awk -v xml="$xml_content" '
+    { lines[NR] = $0 }
+    END {
+      for (i = 1; i < NR; i++) {
+        print lines[i]
+      }
+      print xml
+      print lines[NR]
+    }' "$ossec_conf" | sudo tee "$ossec_conf" > /dev/null
+  echo "XML content added just above the last line in $ossec_conf"
+  
+  # Restart the Wazuh agent
+  sudo systemctl restart wazuh-agent
+  echo "Wazuh agent restarted"
+else
+  echo "Error: $ossec_conf does not exist."
+fi
+
+echo "Completed writing the file and restarting the Wazuh agent"
